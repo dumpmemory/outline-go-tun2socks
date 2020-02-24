@@ -22,6 +22,7 @@ import (
 	"github.com/Jigsaw-Code/outline-go-tun2socks/outline"
 	"github.com/Jigsaw-Code/outline-go-tun2socks/tunnel"
 	"github.com/eycorsican/go-tun2socks/common/log"
+	"gvisor.dev/gvisor/pkg/tcpip/link/fdbased"
 )
 
 func init() {
@@ -54,7 +55,7 @@ func ConnectShadowsocksTunnel(fd int, host string, port int, password, cipher st
 	if port <= 0 || port > math.MaxUint16 {
 		return nil, fmt.Errorf("Invalid port number: %v", port)
 	}
-	tun, err := tunnel.MakeTunFile(fd)
+	tun, err := fdbased.New(&fdbased.Options{FDs: []int{fd}})
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +63,6 @@ func ConnectShadowsocksTunnel(fd int, host string, port int, password, cipher st
 	if err != nil {
 		return nil, err
 	}
-	go tunnel.ProcessInputPackets(t, tun)
+	// FIXME go tunnel.ProcessInputPackets(t, tun)
 	return t, nil
 }
