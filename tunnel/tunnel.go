@@ -33,11 +33,12 @@ type Tunnel interface {
 	IsConnected() bool
 	// Disconnect disconnects the tunnel.
 	Disconnect()
+	SetUDPHandler(core.UDPConnHandler)
 }
 
 const nicID = 1
 
-func MakeTunnel(link stack.LinkEndpoint, tcpHandler core.TCPConnHandler, udpHandler core.UDPConnHandler) (*tunnel, error) {
+func NewTunnel(link stack.LinkEndpoint, tcpHandler core.TCPConnHandler, udpHandler core.UDPConnHandler) (Tunnel, error) {
 	netstack := stack.New(stack.Options{
 		NetworkProtocols:   []stack.NetworkProtocolFactory{ipv4.NewProtocol, ipv6.NewProtocol},
 		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol},
@@ -88,4 +89,9 @@ func (t *tunnel) Disconnect() {
 	}
 	t.isConnected = false
 	t.netstack.Close()
+}
+
+func (t *tunnel) SetUDPHandler(udpHandler core.UDPConnHandler) {
+	// TODO: Make this thread-safe.
+	t.nat.handler = udpHandler
 }

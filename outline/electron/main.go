@@ -24,6 +24,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Jigsaw-Code/outline-go-tun2socks/outline"
 	oss "github.com/Jigsaw-Code/outline-go-tun2socks/outline/shadowsocks"
 	"github.com/Jigsaw-Code/outline-go-tun2socks/tunnel"
 	"github.com/eycorsican/go-tun2socks/common/log"
@@ -112,7 +113,7 @@ func main() {
 	}
 
 	link := tunnel.NewLink(tunDevice)
-	t, err := tunnel.NewOutlineTunnel(*args.proxyHost, *args.proxyPort, *args.proxyPassword, *args.proxyCipher, !*args.dnsFallback, link)
+	t, err := outline.NewTunnel(*args.proxyHost, *args.proxyPort, *args.proxyPassword, *args.proxyCipher, !*args.dnsFallback, link)
 	if err != nil {
 		log.Errorf("Failed to create Outline tunnel: %v", err)
 		os.Exit(oss.IllegalConfiguration)
