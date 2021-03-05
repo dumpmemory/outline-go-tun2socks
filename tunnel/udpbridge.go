@@ -67,7 +67,7 @@ func (c reverseUDPConn) WriteFrom(data []byte, addr *net.UDPAddr) (int, error) {
 	pkt.TransportProtocolNumber = udp.ProtocolNumber
 
 	// Copy packet contents
-	pkt.Data.AppendView(buffer.NewViewFromBytes(data))
+	pkt.Data().AppendView(buffer.NewViewFromBytes(data))
 	length := uint16(pkt.Size())
 	udpHeader.SetSourcePort(uint16(addr.Port))
 	udpHeader.SetDestinationPort(c.localAddr.Port)
@@ -129,7 +129,7 @@ func (n *nat) HandleOutboundPacket(id stack.TransportEndpointID, pkt *stack.Pack
 		log.Printf("UDP upload error: %v", err)
 		return false
 	}
-	if err := n.handler.ReceiveTo(conn, pkt.Data.ToView(), &dstAddr); err != nil {
+	if err := n.handler.ReceiveTo(conn, pkt.Data().AsRange().ToOwnedView(), &dstAddr); err != nil {
 		log.Printf("UDP upload write error: %v", err)
 		return false
 	}

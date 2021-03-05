@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"runtime/pprof"
 	"strings"
 	"syscall"
 	"time"
@@ -119,6 +120,11 @@ func main() {
 		os.Exit(oss.IllegalConfiguration)
 	}
 
+	f, err := os.Create("memory.prof")
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
 	go func() {
 		_, err := io.CopyBuffer(link, tunDevice, make([]byte, mtu))
 		if err != nil {
@@ -132,6 +138,7 @@ func main() {
 	osSignals := make(chan os.Signal, 1)
 	signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGHUP)
 	sig := <-osSignals
+	pprof.WriteHeapProfile(f)
 	log.Debugf("Received signal: %v", sig)
 	t.Disconnect()
 }
