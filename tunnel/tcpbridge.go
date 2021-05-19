@@ -1,6 +1,7 @@
 package tunnel
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"log"
@@ -9,7 +10,6 @@ import (
 	"time"
 
 	"gvisor.dev/gvisor/pkg/tcpip"
-	"gvisor.dev/gvisor/pkg/tcpip/buffer"
 	"gvisor.dev/gvisor/pkg/tcpip/stack"
 	"gvisor.dev/gvisor/pkg/tcpip/transport/tcp"
 	"gvisor.dev/gvisor/pkg/waiter"
@@ -26,57 +26,45 @@ type bridgeConn struct {
 	writeClosed bool
 }
 
-func (c *bridgeConn) Read(b []byte) (n int, err error) {
-	if len(c.pending) > 0 {
-		n := copy(b, c.pending)
-		c.pending = c.pending[n:]
-		return n, nil
-	}
+func (c *bridgeConn) Read(b []byte) (int, error) {
+	panic("Unimplemented") // io.Copy always prefers WriteTo
+}
+
+func (c *bridgeConn) WriteTo(w io.Writer) (n int64, err error) {
 	waitEntry, notifyCh := waiter.NewChannelEntry(nil)
 	c.q.EventRegister(&waitEntry, waiter.EventIn)
 	defer c.q.EventUnregister(&waitEntry)
 	for {
-		v, _, err := c.endpoint.Read(nil)
-		if err == tcpip.ErrWouldBlock {
+		result, tcpErr := c.endpoint.Read(w, tcpip.ReadOptions{})
+		if _, ok := tcpErr.(*tcpip.ErrWouldBlock); ok {
 			<-notifyCh
 			continue
 		}
-		n := copy(b, v)
-		c.pending = v[n:]
-		if err == tcpip.ErrClosedForReceive {
-			if n == len(v) {
-				return n, io.EOF
-			}
-			return n, nil
-		} else if err != nil {
-			return n, errors.New(err.String())
-		} else if n > 0 {
-			return n, nil
+		n += int64(result.Total)
+		if _, ok := tcpErr.(*tcpip.ErrClosedForReceive); ok {
+			// EOF case.  Success.
+			return
+		} else if tcpErr != nil {
+			err = errors.New(tcpErr.String())
+			return
 		}
 	}
 }
 
-func (c *bridgeConn) Write(b []byte) (n int, err error) {
-	// endpoint.Write takes ownership of any input, so make a copy.
-	// TODO: Find a way to avoid this copy!
-	v := buffer.NewView(len(b))
-	copy(v, b)
+func (c *bridgeConn) Write(b []byte) (int, error) {
 	waitEntry, notifyCh := waiter.NewChannelEntry(nil)
 	c.q.EventRegister(&waitEntry, waiter.EventOut)
 	defer c.q.EventUnregister(&waitEntry)
-	written := 0
+	reader := bytes.NewReader(b)
 	for {
-		n, _, err := c.endpoint.Write(tcpip.SlicePayload(v), tcpip.WriteOptions{})
-		written += int(n)
-		v.TrimFront(int(n))
-		if err == tcpip.ErrWouldBlock || err == nil && len(v) > 0 {
-			<-notifyCh
-			continue
-		} else if err != nil {
-			return written, errors.New(err.String()) // TODO EOF
-		} else if len(v) == 0 {
-			return written, nil
+		_, tcpErr := c.endpoint.Write(reader, tcpip.WriteOptions{Atomic: true})
+		_, isErrWouldBlock := tcpErr.(*tcpip.ErrWouldBlock)
+		if tcpErr != nil && !isErrWouldBlock {
+			return len(b) - reader.Len(), errors.New(tcpErr.String()) // TODO EOF?
+		} else if reader.Len() == 0 {
+			return len(b), nil
 		}
+		<-notifyCh
 	}
 }
 

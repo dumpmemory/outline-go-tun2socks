@@ -20,6 +20,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"runtime/pprof"
 	"strings"
 	"syscall"
 	"time"
@@ -51,6 +52,7 @@ var args struct {
 	logLevel          *string
 	checkConnectivity *bool
 	dnsFallback       *bool
+	memProfile        *string
 	version           *bool
 }
 var version string // Populated at build time through `-X main.version=...`
@@ -70,6 +72,7 @@ func main() {
 	args.dnsFallback = flag.Bool("dnsFallback", false, "Enable DNS fallback over TCP (overrides the UDP handler).")
 	args.checkConnectivity = flag.Bool("checkConnectivity", false, "Check the proxy TCP and UDP connectivity and exit.")
 	args.version = flag.Bool("version", false, "Print the version and exit.")
+	args.memProfile = flag.String("memprofile", "", "Filename to write a memory profile")
 
 	flag.Parse()
 
@@ -134,6 +137,19 @@ func main() {
 	signal.Notify(osSignals, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGHUP)
 	sig := <-osSignals
 	log.Debugf("Received signal: %v", sig)
+
+	if *args.memProfile != "" {
+		f, err := os.Create(*args.memProfile)
+		if err != nil {
+			log.Fatalf("could not create memory profile: %v", err)
+		}
+		defer f.Close() // error handling omitted for example
+		// runtime.GC() // get up-to-date statistics
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatalf("could not write memory profile: %v", err)
+		}
+	}
+
 	t.Disconnect()
 }
 

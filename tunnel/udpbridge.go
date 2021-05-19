@@ -60,7 +60,7 @@ func (c reverseUDPConn) WriteFrom(data []byte, addr *net.UDPAddr) (int, error) {
 	pkt.TransportProtocolNumber = udp.ProtocolNumber
 
 	// Copy packet contents
-	pkt.Data.AppendView(buffer.NewViewFromBytes(data))
+	pkt.Data().AppendView(buffer.NewViewFromBytes(data))
 	length := uint16(pkt.Size())
 	udpHeader.SetSourcePort(uint16(addr.Port))
 	udpHeader.SetDestinationPort(c.localAddr.Port)
@@ -72,7 +72,7 @@ func (c reverseUDPConn) WriteFrom(data []byte, addr *net.UDPAddr) (int, error) {
 		Protocol: udp.ProtocolNumber,
 		TTL:      route.DefaultTTL(),
 	}
-	if err := route.WritePacket(nil, headerParams, pkt); err != nil {
+	if err := route.WritePacket(headerParams, pkt); err != nil {
 		log.Printf("UDP download write error: %v", err)
 		return 0, errors.New(err.String())
 	}
@@ -115,7 +115,10 @@ func (n *nat) HandleOutboundPacket(id stack.TransportEndpointID, pkt *stack.Pack
 		log.Printf("UDP upload error: %v", err)
 		return false
 	}
-	if err := n.handler.ReceiveTo(conn, pkt.Data.ToView(), &dstAddr); err != nil {
+	// AsView() can trigger reallocation if there are multiple segments in the range.
+	// TODO: Check if this ever happens, and if so, make the Shadowsocks-UDP writer accept
+	// multiple segments to concatenate before encryption.
+	if err := n.handler.ReceiveTo(conn, pkt.Data().AsRange().AsView(), &dstAddr); err != nil {
 		log.Printf("UDP upload write error: %v", err)
 		return false
 	}

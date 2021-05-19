@@ -19,11 +19,19 @@ type notifyWriter struct {
 	endpoint  *channel.Endpoint
 }
 
+// Downstream packet header and body concatenation buffer.
+var downstream [vpnMtu]byte
+
 // Implements NotifyWriter
 func (w *notifyWriter) WriteNotify() {
 	packetInfo, ok := w.endpoint.Read()
 	if ok {
-		var data []byte
+		// Each downstream packet typically consists of two views:
+		// a body view (arbitrary size) and a header view (IP + TCP).
+		// We have to concatenate these into an IP packet before proceeding.
+		// This copy could be avoided using unix.Writev, but it would require
+		// access to the underlying file descriptor for tunWriter.
+		data := downstream[:0]
 		for _, view := range packetInfo.Pkt.Views() {
 			data = append(data, view...)
 		}
