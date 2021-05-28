@@ -21,7 +21,6 @@ import (
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra"
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/doh"
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/protect"
-	"github.com/Jigsaw-Code/outline-go-tun2socks/tunnel"
 	"github.com/eycorsican/go-tun2socks/common/log"
 	"gvisor.dev/gvisor/pkg/tcpip/link/fdbased"
 )

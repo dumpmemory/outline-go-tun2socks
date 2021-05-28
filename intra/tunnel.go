@@ -20,10 +20,9 @@ import (
 	"strings"
 	"time"
 
-	"gvisor.dev/gvisor/pkg/tcpip/stack"
-
 	"github.com/Jigsaw-Code/outline-go-tun2socks/intra/doh"
 	"github.com/Jigsaw-Code/outline-go-tun2socks/tunnel"
+	"gvisor.dev/gvisor/pkg/tcpip/stack"
 )
 
 // Listener receives usage statistics when a UDP or TCP socket is closed,
@@ -54,9 +53,9 @@ type Tunnel interface {
 }
 
 type intratunnel struct {
-	*tunnel
-	tcp intra.TCPHandler
-	udp intra.UDPHandler
+	tunnel.Tunnel
+	tcp TCPHandler
+	udp UDPHandler
 	dns doh.Transport
 }
 
@@ -70,16 +69,17 @@ type intratunnel struct {
 // `endpoint` is the TUN device
 // `dialer` and `config` will be used for all network activity.
 // `listener` will be notified at the completion of every tunneled socket.
-func NewTunnel(fakedns string, dohdns doh.Transport, tunWriter io.WriteCloser, dialer *net.Dialer, config *net.ListenConfig, listener Listener) (Tunnel, error) {
-	if tunWriter == nil {
-		return nil, errors.New("Must provide a valid TUN writer")
+func NewTunnel(fakedns string, dohdns doh.Transport, endpoint stack.LinkEndpoint, dialer *net.Dialer, config *net.ListenConfig, listener Listener) (Tunnel, error) {
+	tcp, udp, err := getConnectionHandlers(fakedns, dialer, config, listener)
+	if err != nil {
+		return nil, err
 	}
-	base, err := MakeTunnel(endpoint, tcp, udp)
+	base, err := tunnel.MakeTunnel(endpoint, tcp, udp)
 	if err != nil {
 		return nil, err
 	}
 	t := &intratunnel{
-		tunnel: base,
+		Tunnel: base,
 		tcp:    tcp,
 		udp:    udp,
 	}

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/Jigsaw-Code/outline-go-tun2socks/outline"
+	"github.com/Jigsaw-Code/outline-go-tun2socks/tunnel"
 )
 
 // OutlineTunnel embeds the tun2socks.Tunnel interface so it gets exported by gobind.
@@ -33,11 +34,11 @@ type OutlineTunnel interface {
 }
 
 type appleTunnel struct {
-	tunnel.OutlineTunnel
+	outline.Tunnel
 	endpoint *tunnel.Endpoint
 }
 
-func (t *appleTunnel) Write(data []byte) (n int, err error) {
+func (t *appleTunnel) Write(data []byte) (int, error) {
 	return t.endpoint.Write(data)
 }
 
@@ -49,7 +50,7 @@ type TunWriter interface {
 func init() {
 	// Apple VPN extensions have a memory limit of 15MB. Conserve memory by increasing garbage
 	// collection frequency and returning memory to the OS every minute.
-	debug.SetGCPercent(10)
+	//debug.SetGCPercent(5)
 	// TODO: Check if this is still needed in go 1.13, which returns memory to the OS
 	// automatically.
 	ticker := time.NewTicker(time.Minute * 1)

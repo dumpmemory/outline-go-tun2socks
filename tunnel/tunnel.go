@@ -43,6 +43,12 @@ func MakeTunnel(link stack.LinkEndpoint, tcpHandler core.TCPConnHandler, udpHand
 		TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol},
 		HandleLocal:        false, // false to force all traffic to be forwarded.
 	})
+	netstack.SetTransportProtocolOption(tcp.ProtocolNumber, &tcpip.TCPSendBufferSizeRangeOption{
+		Max: 2048, // Ideally this should probably be exactly one MSS
+	})
+	netstack.SetTransportProtocolOption(tcp.ProtocolNumber, &tcpip.TCPReceiveBufferSizeRangeOption{
+		Max: 18000, // 16KB (shadowsocks max) + 1 MTU should be plenty
+	})
 	if neterr := netstack.CreateNICWithOptions(nicID, link, stack.NICOptions{Disabled: true}); neterr != nil {
 		return nil, errors.New(neterr.String())
 	}

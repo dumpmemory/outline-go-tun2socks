@@ -20,7 +20,6 @@ import (
 	"runtime/debug"
 
 	"github.com/Jigsaw-Code/outline-go-tun2socks/outline"
-	"github.com/Jigsaw-Code/outline-go-tun2socks/tunnel"
 	"github.com/eycorsican/go-tun2socks/common/log"
 	"gvisor.dev/gvisor/pkg/tcpip/link/fdbased"
 )
