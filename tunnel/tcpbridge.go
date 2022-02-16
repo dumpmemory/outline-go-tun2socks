@@ -20,7 +20,6 @@ import (
 type bridgeConn struct {
 	endpoint    tcpip.Endpoint
 	q           *waiter.Queue
-	pending     []byte
 	closedMu    sync.Mutex
 	readClosed  bool
 	writeClosed bool
@@ -31,8 +30,8 @@ func (c *bridgeConn) Read(b []byte) (int, error) {
 }
 
 func (c *bridgeConn) WriteTo(w io.Writer) (n int64, err error) {
-	waitEntry, notifyCh := waiter.NewChannelEntry(nil)
-	c.q.EventRegister(&waitEntry, waiter.EventIn)
+	waitEntry, notifyCh := waiter.NewChannelEntry(waiter.EventIn)
+	c.q.EventRegister(&waitEntry)
 	defer c.q.EventUnregister(&waitEntry)
 	for {
 		result, tcpErr := c.endpoint.Read(w, tcpip.ReadOptions{})
@@ -52,8 +51,8 @@ func (c *bridgeConn) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (c *bridgeConn) Write(b []byte) (int, error) {
-	waitEntry, notifyCh := waiter.NewChannelEntry(nil)
-	c.q.EventRegister(&waitEntry, waiter.EventOut)
+	waitEntry, notifyCh := waiter.NewChannelEntry(waiter.EventOut)
+	c.q.EventRegister(&waitEntry)
 	defer c.q.EventUnregister(&waitEntry)
 	reader := bytes.NewReader(b)
 	for {

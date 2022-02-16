@@ -17,24 +17,23 @@ const vpnMtu = 1500
 type notifyWriter struct {
 	tunWriter io.WriteCloser
 	endpoint  *channel.Endpoint
+	// Downstream packet header and body concatenation buffer.
+	downstream [vpnMtu]byte
 }
-
-// Downstream packet header and body concatenation buffer.
-var downstream [vpnMtu]byte
 
 // Implements NotifyWriter
 func (w *notifyWriter) WriteNotify() {
-	packetInfo, ok := w.endpoint.Read()
-	if ok {
+	if pkt := w.endpoint.Read(); pkt != nil {
 		// Each downstream packet typically consists of two views:
 		// a body view (arbitrary size) and a header view (IP + TCP).
 		// We have to concatenate these into an IP packet before proceeding.
 		// This copy could be avoided using unix.Writev, but it would require
 		// access to the underlying file descriptor for tunWriter.
-		data := downstream[:0]
-		for _, view := range packetInfo.Pkt.Views() {
+		data := w.downstream[:0]
+		for _, view := range pkt.Views() {
 			data = append(data, view...)
 		}
+		pkt.DecRef()
 		if _, err := w.tunWriter.Write(data); err != nil {
 			log.Printf("Downstream packet err=%v", err)
 		}
@@ -61,6 +60,7 @@ func (e *Endpoint) Write(pkt []byte) (n int, err error) {
 		protocol = header.IPv4ProtocolNumber
 	}
 	e.InjectInbound(protocol, packetBuffer)
+	packetBuffer.DecRef()
 	return
 }
 
@@ -68,7 +68,7 @@ func NewLink(tunWriter io.WriteCloser) *Endpoint {
 	macAddress := tcpip.LinkAddress(string(make([]byte, 6)))
 	const pktQueueDepth = 1 // Empirically must be at least 1
 	endpoint := channel.New(pktQueueDepth, vpnMtu, macAddress)
-	endpoint.AddNotify(&notifyWriter{tunWriter, endpoint})
+	endpoint.AddNotify(&notifyWriter{tunWriter: tunWriter, endpoint: endpoint})
 	// FIXME: What about RemoveNotify?
 
 	return &Endpoint{endpoint}
